@@ -5,6 +5,20 @@ import { handleSubmit } from "./handleSubmit";
 import { createClient } from '@/utils/supabase/client';
 import Swal from 'sweetalert2';
 
+// Define a type for your finance entries
+type FinanceEntry = {
+  recId?: number;
+  id?: number;
+  description: string;
+  expense?: number | null;
+  income?: number | null;
+  savings?: number | null;
+  emergency_fund?: number | null;
+  date: string;
+  created_at?: string;
+  rec_status?: boolean;
+};
+
 export default function Home() {
   const [form, setForm] = useState({
     description: "",
@@ -13,13 +27,13 @@ export default function Home() {
     date: new Date().toISOString().split("T")[0],
   });
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [entries, setEntries] = useState<any[]>([]);
+  // Removed unused 'message' variable
+  const [entries, setEntries] = useState<FinanceEntry[]>([]);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("All");
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<any>(null);
+  const [selectedEntry, setSelectedEntry] = useState<FinanceEntry | null>(null);
 
   // Edit modal state
   const [editMode, setEditMode] = useState(false);
@@ -36,10 +50,10 @@ export default function Home() {
       .from('finance-tracker')
       .select()
       .eq('rec_status', true);
-    setEntries(data || []);
+    setEntries((data as FinanceEntry[]) || []);
     // Calculate balance
     const bal =
-      data?.reduce((acc: number, entry: any) => {
+      (data as FinanceEntry[] | null)?.reduce((acc: number, entry: FinanceEntry) => {
         if (entry.income) return acc + Number(entry.income);
         if (entry.savings) return acc + Number(entry.savings);
         if (entry.emergency_fund) return acc + Number(entry.emergency_fund);
@@ -50,7 +64,8 @@ export default function Home() {
     setLoading(false);
   };
 
-  const deleteEntry = async (recId: number) => {
+  const deleteEntry = async (recId: number | undefined) => {
+    if (!recId) return;
     const supabase = createClient();
     const { error } = await supabase
       .from('finance-tracker')
@@ -63,7 +78,8 @@ export default function Home() {
     await fetchEntries();
   };
 
-  const editEntryDescription = async (recId: number, newDescription: string) => {
+  const editEntryDescription = async (recId: number | undefined, newDescription: string) => {
+    if (!recId) return;
     const supabase = createClient();
     const { error } = await supabase
       .from('finance-tracker')
@@ -97,7 +113,6 @@ export default function Home() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setMessage(null);
 
     const { error } = await handleSubmit({
       description: form.description,
@@ -106,10 +121,7 @@ export default function Home() {
       date: form.date,
     });
 
-    if (error) {
-      setMessage("Failed to add entry.");
-    } else {
-      setMessage("Entry added successfully!");
+    if (!error) {
       setForm({
         description: "",
         amount: "",
@@ -127,7 +139,7 @@ export default function Home() {
     setSubmitting(false);
   };
 
-  const filteredEntries = entries.filter((entry: any) => {
+  const filteredEntries = entries.filter((entry) => {
     if (filter === "All") return true;
     if (filter === "Expense" && entry.expense) return true;
     if (filter === "Income" && entry.income) return true;
@@ -243,7 +255,7 @@ export default function Home() {
                   .sort((a, b) =>
                     new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime()
                   )
-                  .map((entry: any) => {
+                  .map((entry) => {
                     let type = "";
                     if (entry.expense) type = "Expense";
                     else if (entry.income) type = "Income";
@@ -412,6 +424,7 @@ export default function Home() {
                   <button
                     className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg shadow transition"
                     onClick={async () => {
+                      if (!selectedEntry?.recId) return;
                       await editEntryDescription(selectedEntry.recId, editDescription);
                       setEditMode(false);
                       setSelectedEntry({ ...selectedEntry, description: editDescription });
@@ -435,7 +448,7 @@ export default function Home() {
                     className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg shadow transition"
                     onClick={() => {
                       setEditMode(false);
-                      setEditDescription(selectedEntry.description);
+                      setEditDescription(selectedEntry?.description ?? "");
                     }}
                   >
                     Cancel
@@ -446,7 +459,7 @@ export default function Home() {
                   className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow transition"
                   onClick={() => {
                     setEditMode(true);
-                    setEditDescription(selectedEntry.description);
+                    setEditDescription(selectedEntry?.description ?? "");
                   }}
                 >
                   Edit
@@ -455,6 +468,7 @@ export default function Home() {
               <button
                 className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg shadow transition"
                 onClick={async () => {
+                  if (!selectedEntry?.recId) return;
                   const result = await Swal.fire({
                     title: 'Are you sure?',
                     text: "This entry will be deleted.",
