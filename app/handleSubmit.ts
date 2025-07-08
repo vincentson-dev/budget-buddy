@@ -3,12 +3,27 @@
 import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 
-export async function handleSubmit(form: {
+// Define a type for the form input
+export type SubmitForm = {
   description: string;
   amount: number;
   type: 'expense' | 'income' | 'Savings' | 'Emergency Fund';
   date: string;
-}) {
+};
+
+// Define a type for the row to avoid 'any'
+type FinanceRow = {
+  description: string;
+  recId: string;
+  rec_status: boolean;
+  created_at: string;
+  expense: number | null;
+  income: number | null;
+  savings: number | null;
+  emergency_fund: number | null;
+};
+
+export async function handleSubmit(form: SubmitForm) {
   const cookieStore = cookies();
   const supabase = createClient(cookieStore);
 
@@ -16,7 +31,7 @@ export async function handleSubmit(form: {
   const recId = Math.floor(100000 + Math.random() * 900000).toString();
 
   // Prepare the row object
-  const row: any = {
+  const row: FinanceRow = {
     description: form.description,
     recId,
     rec_status: true,
